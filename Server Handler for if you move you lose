@@ -1,0 +1,149 @@
+local hours = 0
+local minutes = 0
+local days = 0
+local x = false
+local counter = 0
+local DataService = game:GetService("DataStoreService")
+local GameData = DataService:GetOrderedDataStore("GameDataStorenew")
+
+game.Players.PlayerAdded:Connect(function(plr)
+	local leaderstats = Instance.new("Folder")
+	leaderstats.Parent = plr
+	leaderstats.Name = "leaderstats"
+	
+	local Time = Instance.new("IntValue")
+	Time.Parent = leaderstats
+	Time.Name = "Time"
+		local TimeSaved = GameData:GetAsync(plr.UserId)
+		Time.Value = TimeSaved
+	end)
+
+game.Players.PlayerRemoving:Connect(function(plr)
+	GameData:SetAsync(plr.UserId,plr.leaderstats.Time.Value)
+end)
+
+function UpdateClock()
+	game.ReplicatedStorage.Update:FireAllClients(days,hours,minutes,counter)
+end
+
+game:BindToClose(function()
+	for i,v in pairs(game.Players:GetPlayers()) do
+		GameData:SetAsync(v.UserId,v.leaderstats.Time.Value)
+	end
+end)
+
+function comma(amount)--//CommaFunction
+	while true do
+		amount, k = string.gsub(amount, "^(-?%d+)(%d%d%d)", '%1,%2')
+		if k == 0 then break
+
+		end
+	end 
+	return amount
+end
+
+
+function FixClock()
+	UpdateClock()
+	if counter >= 59 then
+		UpdateClock()
+		minutes += 1
+		counter = 0
+	end
+	if minutes >= 59 then
+		UpdateClock()
+		hours += 1
+		minutes = 0
+	end
+	if hours >= 24 then
+		UpdateClock()
+		days += 1
+		hours = 0
+	end
+end
+
+game.ReplicatedStorage.Lose.OnServerEvent:Connect(function(plr)
+	for i,v in pairs(game.Players:GetPlayers()) do
+		v:Kick(plr.Name.." has moved")
+	end
+end)
+
+function SetUpLeaderboard()
+local Sort = GameData:GetSortedAsync(false,50)
+local Data = Sort:GetCurrentPage()
+for rank,data in pairs(Data) do
+	print(data.value,data.key)
+	local Name = game.Players:GetNameFromUserIdAsync(tonumber(data.key))
+	local Time = Data.Value
+	local IsOnLeaderboard = false
+	
+	for i,v in pairs(game.Players:GetPlayers()) do
+		for each,gui in pairs(v.PlayerGui:WaitForChild("ScreenGui"):WaitForChild("LeaderboardFrame"):GetChildren()) do
+			if gui:IsA("Frame") then
+				if gui.Username.Text == Name then
+					IsOnLeaderboard = true
+					break
+				end
+			end
+		end
+	end
+	
+	if IsOnLeaderboard == false then
+		for i,v in pairs(game.Players:GetPlayers()) do
+				local PlayerFrame = game.ReplicatedStorage:WaitForChild("PlayerFrame"):Clone()
+				PlayerFrame.Username.Text = Name
+				PlayerFrame.Amount.Text = comma(tostring(data.value))
+				PlayerFrame.PlayerPosition.Text = "#"..tostring(rank)
+				PlayerFrame.Parent = v.PlayerGui:WaitForChild("ScreenGui"):WaitForChild("LeaderboardFrame")
+		end
+	end
+end
+end
+
+
+function UpdateData()
+	for _, player in pairs(game.Players:GetPlayers()) do
+		GameData:SetAsync(player.UserId,player.leaderstats.Time.Value)
+		for i,v in pairs(player:WaitForChild("PlayerGui"):WaitForChild("ScreenGui"):WaitForChild("LeaderboardFrame"):GetChildren()) do
+			if v:IsA("Frame") then
+				v:Destroy()
+			end
+		end
+	end
+end
+
+game.Players.PlayerAdded:Connect(function()
+	wait(1)
+	UpdateData()
+end)
+game.Players.PlayerAdded:Connect(function()
+	wait(2)
+	SetUpLeaderboard()
+end)
+
+
+
+coroutine.wrap(function()
+repeat
+	wait(1)
+		for i,v in pairs(game.Players:GetPlayers()) do
+			v.leaderstats.Time.Value += 1
+		end
+	counter += 1
+	FixClock()
+until x
+end)()
+
+coroutine.wrap(function()
+while true do
+	wait(300)
+		for i,v in pairs(game.Players:GetPlayers()) do
+			GameData:SetAsync(v.UserId,v.leaderstats.Time.Value)
+		end
+		wait(2)
+	UpdateData()
+	SetUpLeaderboard()
+end
+end)()
+
+--Made by IzakYkYk for https://www.roblox.com/games/17360780773/If-you-move-you-lose
